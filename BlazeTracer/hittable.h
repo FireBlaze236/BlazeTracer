@@ -11,6 +11,9 @@ struct hit_record {
     vec3 normal;
     shared_ptr<material> mat_ptr;
     double t;
+
+    double u;
+    double v;
     
     bool front_face;
 
