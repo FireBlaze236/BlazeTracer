@@ -5,6 +5,8 @@
 #include <fstream>
 #include <thread>
 #include <chrono>
+#include <map>
+#include <sstream>
 
 #include "rtweekend.h"
 
@@ -15,6 +17,10 @@
 #include "camera.h"
 
 #include "material.h"
+
+#include "moving_sphere.h"
+
+#include "bvh.h"
 
 hittable_list random_scene() {
 	hittable_list world;
@@ -34,7 +40,10 @@ hittable_list random_scene() {
 					// diffuse
 					auto albedo = color::random() * color::random();
 					sphere_material = make_shared<lambertian>(albedo);
-					world.add(make_shared<sphere>(center, 0.2, sphere_material));
+					auto center2 = center + vec3(0, random_double(0, .5), 0);
+					world.add(make_shared<moving_sphere>(
+						center, center2, 0.0, 1.0, 0.2, sphere_material));
+
 				}
 				else if (choose_mat < 0.95) {
 					// metal
@@ -88,9 +97,33 @@ color ray_color(const ray& r, const hittable& world, int depth) {
 	return (1.0 - t) * color(1.0, 1.0, 1.0) + t * color(0.5, 0.7, 1.0);
 }
 
+color ray_bvh(const ray& r, const bvh_node& world, int depth) {
+	hit_record rec;
+
+	if (depth <= 0) {
+		return color(0, 0, 0);
+	}
+
+	if (world.hit(r, 0.001, infinity, rec)) {
+		ray scattered;
+		color attenuation;
+
+		if (rec.mat_ptr->scatter(r, rec, attenuation, scattered)) {
+			return attenuation * ray_color(scattered, world, depth - 1);
+		}
+
+		return color(0, 0, 0);
+	}
+	vec3 unit_direction = unit_vector(r.direction());
+	auto t = 0.5 * (unit_direction.y() + 1.0);
+	return (1.0 - t) * color(1.0, 1.0, 1.0) + t * color(0.5, 0.7, 1.0);
+}
+
 
 int threadsDone = 0;
-void thread_trace(std::vector<std::vector<color>>& colors, hittable_list& world, camera cam,
+std::map<std::thread::id, double> threadProgress;
+
+void thread_trace(std::vector<std::vector<color>>& colors, bvh_node& world, camera cam,
 	int max_depth, int start_line, int end_line, int image_height, int image_width, int samples_per_pixel, std::chrono::steady_clock::time_point start) {
 	for (int j = end_line; j >= start_line; --j) {
 		//std::cerr << "\rScanlines remaining: " << j << ' ' << std::flush;
@@ -103,7 +136,9 @@ void thread_trace(std::vector<std::vector<color>>& colors, hittable_list& world,
 				ray r = cam.get_ray(u, v);
 
 
-				pixel_color += ray_color(r, world, max_depth);
+				pixel_color += ray_bvh(r, world, max_depth);
+
+				threadProgress[std::this_thread::get_id()] = (double)(end_line - j) / (end_line - start_line);
 			}
 			colors[j][i] = pixel_color;
 		}
@@ -119,9 +154,9 @@ int main()
 {
 	//Image
 	const auto aspect_ratio = 16.0 / 9.0;
-	const int image_width = 256;
+	const int image_width = 1280;
 	const int image_height = static_cast<int>(image_width / aspect_ratio);
-	const int samples_per_pixel = 500;
+	const int samples_per_pixel = 100;
 	const int max_depth = 50;
 	//World
 	auto R = cos(pi / 4);
@@ -143,7 +178,7 @@ int main()
 	vec3 vup(0, 1, 0);
 	auto dist_to_focus = 10.0;
 	auto aperture = 0.1;
-	camera cam(lookfrom, lookat, vup, 20, aspect_ratio, aperture, dist_to_focus);
+	camera cam(lookfrom, lookat, vup, 20, aspect_ratio, aperture, dist_to_focus, 0.0, 1.0);
 	
 	//Render
 	std::fstream imageFile("out.ppm");
@@ -176,25 +211,43 @@ int main()
 	}
 	*/
 
+	bvh_node scene(world.objects, 0, world.objects.size(), 0, 0);
+
 	std::vector<std::thread> threads;
-	int thread_count = 16;
+	int thread_count = 12;
 	int inc = image_height / thread_count;
 	int st = 0;
 	int end = inc;
 	for (int i = 0; i < thread_count; i++) {
 
-		std::thread t(thread_trace, std::ref(colors), std::ref(world), cam, max_depth, st , end-1,
+		std::thread t(thread_trace, std::ref(colors), std::ref(scene), cam, max_depth, st , end-1,
 			image_height, image_width, samples_per_pixel, start);
 
 		st += inc;
 		end += inc;
 
+		threadProgress[t.get_id()] = 0;
 		threads.push_back(std::move(t));
 	}
 	
 	while (threadsDone < thread_count) {
-		std::cerr << "\rThreads remaining: " << thread_count - threadsDone << ' ' << std::flush;
-		std::this_thread::sleep_for(std::chrono::microseconds(100));
+		std::stringstream ss;
+		
+
+		int count = 1;
+		for (auto& t : threads) {
+			ss << "Thread " <<  count << " :"
+				<< threadProgress[t.get_id()] * 100.0 << '%' << '\n';
+			count++;
+		}
+		ss << "Threads remaining: " << thread_count - threadsDone << '\n';
+		ss << '\r';
+		std::cerr << ss.str();
+		std::cerr.flush();
+		std::this_thread::sleep_for(std::chrono::microseconds(500));
+		
+
+
 	}
 
 	for (auto& t : threads) {

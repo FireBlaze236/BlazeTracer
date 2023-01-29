@@ -12,12 +12,15 @@ public:
 	
 	vec3 forward, right, up;
 	double lens_radius;
+	double time0, time1; //shutter open and close time
 public:
 
 	camera(point3 lookfrom, point3 lookat, vec3 vup,
 		double vfov, double aspect_ratio,
 		double aperture,
-		double focus_dist) {
+		double focus_dist,
+		double _time0 = 0,
+		double _time1 = 0) {
 		auto theta = degrees_to_radians(vfov);
 		auto h = tan(theta / 2);
 		
@@ -36,6 +39,9 @@ public:
 		lower_left_corner = origin - horizontal / 2 - vertical / 2 - focus_dist * forward;
 
 		lens_radius = aperture / 2;
+
+		time0 = _time0;
+		time1 = _time1;
 	}
 
 	ray get_ray(double u, double v) const {
@@ -44,7 +50,8 @@ public:
 		vec3 offset = right * rd.x() + up * rd.y();
 
 		return ray(origin + offset,
-			lower_left_corner + u * horizontal + v * vertical - origin - offset);
+			lower_left_corner + u * horizontal + v * vertical - origin - offset,
+			random_double(time0, time1));
 	}
 };
 
