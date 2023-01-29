@@ -91,7 +91,7 @@ color ray_color(const ray& r, const hittable& world, int depth) {
 void thread_trace(std::vector<std::vector<color>>& colors, hittable_list& world, camera cam,
 	int max_depth, int start_line, int end_line, int image_height, int image_width, int samples_per_pixel, std::chrono::steady_clock::time_point start) {
 	for (int j = end_line; j >= start_line; --j) {
-		std::cerr << "\rScanlines remaining: " << j << ' ' << std::flush;
+		//std::cerr << "\rScanlines remaining: " << j << ' ' << std::flush;
 		for (int i = 0; i < image_width; ++i) {
 			color pixel_color(0, 0, 0);
 			for (int s = 0; s < samples_per_pixel; ++s) {
@@ -116,24 +116,24 @@ int main()
 {
 	//Image
 	const auto aspect_ratio = 16.0 / 9.0;
-	const int image_width = 1024;
+	const int image_width = 1280;
 	const int image_height = static_cast<int>(image_width / aspect_ratio);
-	const int samples_per_pixel = 100;
+	const int samples_per_pixel = 500;
 	const int max_depth = 50;
 	//World
 	auto R = cos(pi / 4);
-	auto world = hittable_list();
+	auto world = random_scene();
 
 	auto material_ground = make_shared<lambertian>(color(0.8, 0.8, 0.0));
 	auto material_center = make_shared<lambertian>(color(0.1, 0.2, 0.5));
 	auto material_left = make_shared<dielectric>(1.5);
 	auto material_right = make_shared<metal>(color(0.8, 0.6, 0.2), 0.0);
 
-	world.add(make_shared<sphere>(point3(0.0, -100.5, -1.0), 100.0, material_ground));
-	world.add(make_shared<sphere>(point3(0.0, 0.0, -1.0), 0.5, material_center));
-	world.add(make_shared<sphere>(point3(-1.0, 0.0, -1.0), 0.5, material_left));
-	world.add(make_shared<sphere>(point3(-1.0, 0.0, -1.0), -0.45, material_left));
-	world.add(make_shared<sphere>(point3(1.0, 0.0, -1.0), 0.5, material_right));
+	//world.add(make_shared<sphere>(point3(0.0, -100.5, -1.0), 100.0, material_ground));
+	//world.add(make_shared<sphere>(point3(0.0, 0.0, -1.0), 0.5, material_center));
+	//world.add(make_shared<sphere>(point3(-1.0, 0.0, -1.0), 0.5, material_left));
+	//world.add(make_shared<sphere>(point3(-1.0, 0.0, -1.0), -0.45, material_left));
+	//world.add(make_shared<sphere>(point3(1.0, 0.0, -1.0), 0.5, material_right));
 	//Camera
 	point3 lookfrom(13, 2, 3);
 	point3 lookat(0, 0, 0);
@@ -174,7 +174,7 @@ int main()
 	*/
 
 	std::vector<std::thread> threads;
-	int thread_count = 8;
+	int thread_count = 12;
 	int inc = image_height / thread_count;
 	int st = 0;
 	int end = inc;
