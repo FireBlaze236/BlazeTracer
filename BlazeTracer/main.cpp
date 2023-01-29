@@ -88,6 +88,8 @@ color ray_color(const ray& r, const hittable& world, int depth) {
 	return (1.0 - t) * color(1.0, 1.0, 1.0) + t * color(0.5, 0.7, 1.0);
 }
 
+
+int threadsDone = 0;
 void thread_trace(std::vector<std::vector<color>>& colors, hittable_list& world, camera cam,
 	int max_depth, int start_line, int end_line, int image_height, int image_width, int samples_per_pixel, std::chrono::steady_clock::time_point start) {
 	for (int j = end_line; j >= start_line; --j) {
@@ -107,8 +109,9 @@ void thread_trace(std::vector<std::vector<color>>& colors, hittable_list& world,
 		}
 	}
 
-	auto dur = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now() - start);
-	std::cout << "\nThread Duration: " << dur << '\n';
+	
+
+	threadsDone++;
 }
 
 
@@ -116,7 +119,7 @@ int main()
 {
 	//Image
 	const auto aspect_ratio = 16.0 / 9.0;
-	const int image_width = 1280;
+	const int image_width = 256;
 	const int image_height = static_cast<int>(image_width / aspect_ratio);
 	const int samples_per_pixel = 500;
 	const int max_depth = 50;
@@ -174,7 +177,7 @@ int main()
 	*/
 
 	std::vector<std::thread> threads;
-	int thread_count = 12;
+	int thread_count = 16;
 	int inc = image_height / thread_count;
 	int st = 0;
 	int end = inc;
@@ -188,10 +191,18 @@ int main()
 
 		threads.push_back(std::move(t));
 	}
+	
+	while (threadsDone < thread_count) {
+		std::cerr << "\rThreads remaining: " << thread_count - threadsDone << ' ' << std::flush;
+		std::this_thread::sleep_for(std::chrono::microseconds(100));
+	}
 
 	for (auto& t : threads) {
 		t.join();
 	}
+
+	auto dur = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now() - start);
+	std::cout << "\nTime: " << dur << '\n';
 
 	
 
