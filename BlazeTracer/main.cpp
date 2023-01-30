@@ -418,8 +418,8 @@ int main()
 	case 7:
 		world = my_scene();
 		aspect_ratio = 1.0;
-		image_width = 1024;
-		samples_per_pixel = 10000;
+		image_width = 512;
+		samples_per_pixel = 8000;
 		max_depth = 50;
 		background = color(0.0, 0.0, 0.0);
 		lookfrom = point3(26, 4.0, 6);
