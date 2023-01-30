@@ -43,6 +43,10 @@ public:
 
 	bvh_node() {
 	}
+	bvh_node(
+		hittable_list src_objects, double time0, double time1) 
+	: bvh_node(src_objects.objects, 0, src_objects.objects.size(), time0, time1) {
+	}
 
 	bvh_node(
 		const std::vector<shared_ptr<hittable>>& src_objects,
